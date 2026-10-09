@@ -6,6 +6,9 @@ enum SettingsLanguage: String, CaseIterable {
     case spanish = "es"
     case chinese = "zh-Hans"
 
+    /// The system language, matched against the cases. `preferredLocalizations`
+    /// only considers languages the app declares in `CFBundleLocalizations`, so
+    /// `Resources/Info.plist` must list every case.
     static var preferred: Self {
         let preferred = Bundle.preferredLocalizations(from: ["en", "es", "zh-Hans"]).first
         if preferred == "es" || preferred?.hasPrefix("es") == true {
@@ -26,9 +29,21 @@ enum SettingsLanguage: String, CaseIterable {
     }
 
     private var bundle: Bundle {
-        guard let path = Self.resources.path(forResource: rawValue.lowercased(), ofType: "lproj"),
-              let bundle = Bundle(path: path) else { return Self.resources }
-        return bundle
+        Self.lprojBundle(for: rawValue, in: Self.resources) ?? Self.resources
+    }
+
+    /// The `.lproj` directory for a language code, as a bundle. SwiftPM writes
+    /// the directory as `zh-hans.lproj` with one toolchain and as
+    /// `zh-Hans.lproj` with another, and `Bundle` matches the name
+    /// case-sensitively, so both spellings are tried.
+    static func lprojBundle(for code: String, in resources: Bundle) -> Bundle? {
+        for name in [code, code.lowercased()] {
+            if let path = resources.path(forResource: name, ofType: "lproj"),
+               let bundle = Bundle(path: path) {
+                return bundle
+            }
+        }
+        return nil
     }
 
     func localized(_ key: String) -> String {
